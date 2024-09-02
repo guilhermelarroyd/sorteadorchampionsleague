@@ -1,13 +1,33 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, request, render_template
 import pandas as pd
 import random
-import os
 
 app = Flask(__name__)
 
-# Configura o diretório de upload
-UPLOAD_FOLDER = 'uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Carregar o arquivo CSV
+path = 'Downloads/Sorteio Champions - Times.csv'
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+
+# Aqui você pode processar o arquivo carregado
+    file = request.files['file']
+    df = pd.read_csv(file)
+
+# Organizar os times em potes
+potes = {}
+for _, row in df.iterrows():
+    nome = row['Times']
+    dono = row['Dono']
+    pote = row['Pote']
+    chave_pote = f'{dono} Pote {pote}'
+    if chave_pote not in potes:
+        potes[chave_pote] = []
+    potes[chave_pote].append(nome)
 
 # Função para sortear os confrontos de uma rodada
 def sortear_rodada(potes, confrontos_obrigatorios=None):
@@ -35,7 +55,7 @@ def sortear_rodada(potes, confrontos_obrigatorios=None):
     return rodada
 
 # Função para ajustar confrontos repetidos
-def ajustar_confrontos(rodadas, potes):
+def ajustar_confrontos(rodadas):
     todos_confrontos = [confronto for rodada in rodadas for confronto in rodada]
     confrontos_unicos = set()
     
@@ -51,6 +71,35 @@ def ajustar_confrontos(rodadas, potes):
         rodadas[rodadas.index(rodada)] = nova_rodada
     
     return rodadas
+
+# Definir confrontos obrigatórios para as rodadas
+confrontos_obrigatorios_1_2 = [
+    ('Gui Pote 1', 'Pedro Pote 4'),
+    ('Pedro Pote 1', 'Gui Pote 4'),
+    ('Pedro Pote 3', 'Gui Pote 2'),
+    ('Gui Pote 3', 'Pedro Pote 2'),
+]
+
+confrontos_obrigatorios_3_4 = [
+    ('Pedro Pote 2', 'Gui Pote 4'),
+    ('Gui Pote 2', 'Pedro Pote 4'),
+    ('Gui Pote 1', 'Pedro Pote 3'),
+    ('Pedro Pote 1', 'Gui Pote 3'),
+]
+
+confrontos_obrigatorios_5_6 = [
+    ('Pedro Pote 3', 'Gui Pote 4'),
+    ('Gui Pote 3', 'Pedro Pote 4'),
+    ('Pedro Pote 1', 'Gui Pote 2'),
+    ('Gui Pote 1', 'Pedro Pote 2'),
+]
+
+confrontos_obrigatorios_7_8 = [
+    ('Pedro Pote 4', 'Gui Pote 4'),
+    ('Gui Pote 3', 'Pedro Pote 3'),
+    ('Gui Pote 2', 'Pedro Pote 2'),
+    ('Pedro Pote 1', 'Gui Pote 1'),
+]
 
 # Função para sortear as rodadas e ajustar confrontos repetidos
 def sortear_rodadas(potes):
@@ -78,44 +127,23 @@ def sortear_rodadas(potes):
         rodadas.append(rodada)
     
     # Ajustar confrontos repetidos
-    rodadas = ajustar_confrontos(rodadas, potes)
+    rodadas = ajustar_confrontos(rodadas)
     
-    return rodadas
+    # Imprimir rodadas ajustadas e contagem de jogos
+    for i, rodada in enumerate(rodadas, 1):
+        print(f"\nRodada {i}:")
+        for time1, time2 in rodada:
+            dono_time1 = df.loc[df['Times'] == time1, 'Dono']
+            dono_time2 = df.loc[df['Times'] == time2, 'Dono']
+            if not dono_time1.empty and not dono_time2.empty:
+                print(f"{time1} - {dono_time1.values[0]} vs {time2} - {dono_time2.values[0]}")
+        print(f"Número de jogos na rodada {i}: {len(rodada)}")
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return redirect(request.url)
+# Sortear as rodadas
+rodadas = sortear_rodadas(potes)
     
-    file = request.files['file']
-    
-    if file.filename == '':
-        return redirect(request.url)
-    
-    if file and file.filename.endswith('.csv'):
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filepath)
-        
-        global df
-        df = pd.read_csv(filepath)
-        
-        potes = {}
-        for _, row in df.iterrows():
-            nome = row['Times']
-            dono = row['Dono']
-            pote = row['Pote']
-            chave_pote = f'{dono} Pote {pote}'
-            if chave_pote not in potes:
-                potes[chave_pote] = []
-            potes[chave_pote].append(nome)
-        
-        rodadas = sortear_rodadas(potes)
-        
-        return render_template('resultados.html', rodadas=rodadas)
+    # Renderizar ou retornar os resultados como desejar
+    return render_template('result.html', rodadas=rodadas)
 
 if __name__ == '__main__':
     app.run(debug=True)
