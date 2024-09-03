@@ -1,20 +1,17 @@
-from flask import Flask, request, render_template
+from flask import Flask, render_template, request
 import pandas as pd
 import random
 
 app = Flask(__name__)
 
-# Carregar o arquivo CSV
-path = 'Downloads/Sorteio Champions - Times.csv'
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-
-# Aqui você pode processar o arquivo carregado
+@app.route('/sortear', methods=['POST'])
+def sortear():
+    # Load the CSV file
     file = request.files['file']
     df = pd.read_csv(file)
 
@@ -143,6 +140,7 @@ def sortear_rodadas(potes):
 rodadas = sortear_rodadas(potes)
     
     # Renderizar ou retornar os resultados como desejar
+
     return render_template('result.html', rodadas=rodadas)
 
 if __name__ == '__main__':
